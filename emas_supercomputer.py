@@ -22,17 +22,18 @@ def neighbors(i, j, width, height):
     )
 
 
-def coordinates_separated_by(i, j, k):
-    # type: (int, int, int) -> list
+def edges_of_plus_of_size(center, size):
+    # type: (tuple, int) -> list
+    i, j = center
     return [
-        (i - k, j),
-        (i + k, j),
-        (i, j - k),
-        (i, j + k),
+        (i - size, j),
+        (i + size, j),
+        (i, j - size),
+        (i, j + size),
     ]
 
 
-def grid_to_dict(grid, rows, cols):
+def split_initial_grid_to_dictionaries(grid, rows, cols):
     # type: (dict, int, int) -> tuple
     good, bad, grid_dict = {}, {}, {}
     for i in xrange(rows):
@@ -46,13 +47,14 @@ def grid_to_dict(grid, rows, cols):
     return good, bad, grid_dict
 
 
-def expandable_coordinates(good_dict, distance, grid_dict):
+def expandable_plus_at_coordinates(good_dict, distance, grid_dict):
     # type: (dict, int, dict) -> dict
     new_good_dict = {}
 
     for coordinate in good_dict.iterkeys():
         should_add = True
-        for distant_neighbor in coordinates_separated_by(coordinate[0], coordinate[1], distance):
+        center = (coordinate[0], coordinate[1],)
+        for distant_neighbor in edges_of_plus_of_size(center=center, size=distance):
             if distant_neighbor not in grid_dict or grid_dict[distant_neighbor] == 'B':
                 should_add = False
         if should_add:
@@ -61,17 +63,17 @@ def expandable_coordinates(good_dict, distance, grid_dict):
     return new_good_dict
 
 
-def plus_at_coordinate_of_size(coordinate, reach):
+def elements_in_plus_at_center_with_size(center, size):
     # type: (tuple, int) -> set
-    plus_set = set([coordinate])
-    for r in xrange(reach):
+    plus_set = set([center])
+    for r in xrange(size):
         plus_set.update(
-            coordinates_separated_by(coordinate[0], coordinate[1], r + 1)
+            edges_of_plus_of_size(center=center, size=r+1)
         )
     return plus_set
 
 
-def find_highest_partner(top_candidate, sorted_options):
+def find_highest_feasible_partner(top_candidate, sorted_options):
     """
     :param top_candidate: (value, center, elements_contained)
     :param sorted_options: list[(value, center, elements_contained)]
@@ -83,7 +85,7 @@ def find_highest_partner(top_candidate, sorted_options):
     return None
 
 
-def score(top_reference, highest_partner):
+def plus_pair_score(top_reference, highest_partner):
     """
     :param top_reference: (value, center, elements_contained)
     :param highest_partner: (value, center, elements_contained)
@@ -116,17 +118,17 @@ def biggest_plus_per_coordinate(good_dict, bad_dict, grid_dict):
                 pass
 
     reach = 1
-    good_dict = expandable_coordinates(good_dict, reach, grid_dict)
+    good_dict = expandable_plus_at_coordinates(good_dict, reach, grid_dict)
 
     while len(good_dict):
         value += 4
         pluses_by_value[value] = {}
 
         for coordinate in good_dict.iterkeys():
-            pluses_by_value[value][coordinate] = plus_at_coordinate_of_size(coordinate, reach)
+            pluses_by_value[value][coordinate] = elements_in_plus_at_center_with_size(center=coordinate, size=reach)
 
         reach += 1
-        good_dict = expandable_coordinates(good_dict, reach, grid_dict)
+        good_dict = expandable_plus_at_coordinates(good_dict, reach, grid_dict)
 
     return pluses_by_value
 
@@ -136,7 +138,7 @@ def maximum_area(grid, rows, cols):
 
     # Build dict of largest plus per coordinate
 
-    good_dict, bad_dict, grid_dict = grid_to_dict(grid, rows, cols)
+    good_dict, bad_dict, grid_dict = split_initial_grid_to_dictionaries(grid, rows, cols)
     pluses_by_value = biggest_plus_per_coordinate(good_dict, bad_dict, grid_dict)
 
     # Put pluses by coordinate in a sorted list by plus dimension
@@ -154,9 +156,9 @@ def maximum_area(grid, rows, cols):
     options_count = len(positive_sorted_options)
     for i, candidate in enumerate(positive_sorted_options):
 
-        highest_partner = find_highest_partner(candidate, positive_sorted_options[min(i+1, options_count-1):])
+        highest_partner = find_highest_feasible_partner(candidate, positive_sorted_options[min(i + 1, options_count - 1):])
         if highest_partner:
-            s = score(candidate, highest_partner)
+            s = plus_pair_score(candidate, highest_partner)
             if s > _max:
                 _max = s
         else:
@@ -166,7 +168,6 @@ def maximum_area(grid, rows, cols):
     print _max
 
 
-
 rows, cols = raw_input().strip().split(' ')
 rows, cols = int(rows), int(cols)
 grid = []
@@ -174,4 +175,4 @@ for __ in xrange(rows):
     row = raw_input().strip()
     grid.append(row)
 
-
+maximum_area(grid, rows, cols)
